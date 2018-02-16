@@ -67,8 +67,18 @@ $liblynx->setCache($cache);
 ```
 
 
+## Diagnostic logging
 
-## Integration
+Detailed information on API usage can be obtained by passing a PSR-3 compatible
+logger to the client. This package includes a useful `DiagnosticLogger` class which
+can be used to store logs and then output them for console or HTML reading.
+
+```php
+$logger = new \LibLynx\Connect\DiagnosticLogger;
+$liblynx->setLogger($logger);
+```
+
+## Examples
 
 A simple integration involves obtaining an account from data provided in the current
 request superglobals
@@ -85,16 +95,11 @@ if ($identification->isIdentified()) {
 }
 ```
 
-## Diagnostic logging
+See the `examples` folder for other examples:
 
-Detailed information on API usage can be obtained by passing a PSR-3 compatible
-logger to the client. This package includes a useful `DiagnosticLogger` class which
-can be used to store logs and then output them for console or HTML reading.
+- `examples\example.php` is a console application which prompts for an IP and URL performs an 
+  identification. 
 
-```php
-$logger = new \LibLynx\Connect\DiagnosticLogger;
-$liblynx->setLogger($logger);
-```
 
 ## Change log
 
@@ -108,7 +113,7 @@ $ composer test
 
 ## Contributing
 
-Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) for details.
+Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
 
 ## Security
 
