@@ -5,6 +5,9 @@ namespace LibLynx\Connect;
 /**
  * Provides a simple wrapper around a LibLynx identification resource
  * @package LibLynx\Connect
+ *
+ * @property \stdClass $account
+ * @property \stdClass $status
  */
 class Identification extends LibLynxResource
 {
