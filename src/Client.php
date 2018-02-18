@@ -3,6 +3,7 @@
 namespace LibLynx\Connect;
 
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Request;
 use kamermans\OAuth2\GrantType\ClientCredentials;
 use kamermans\OAuth2\OAuth2Middleware;
 use GuzzleHttp\HandlerStack;
@@ -10,11 +11,13 @@ use GuzzleHttp\Client as GuzzleClient;
 use Kevinrob\GuzzleCache\CacheMiddleware;
 use Kevinrob\GuzzleCache\Storage\Psr16CacheStorage;
 use Kevinrob\GuzzleCache\Strategy\PrivateCacheStrategy;
-use LibLynx\Connect\SimpleCacheTokenPersistence;
+use LibLynx\Connect\Exception\APIException;
+use LibLynx\Connect\Exception\LogicException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
+use Psr\SimpleCache\InvalidArgumentException;
 
 /**
  * LibLynx Connect API client
@@ -89,7 +92,7 @@ class Client implements LoggerAwareInterface
 
     /**
      * Set API root
-     * This will be provided to you by LibLynx Technical Support
+     * An alternative root may be provided to you by LibLynx Technical Support
      * @param string $url
      */
     public function setAPIRoot($url)
@@ -149,6 +152,38 @@ class Client implements LoggerAwareInterface
     }
 
     /**
+     * General purpose 'GET' request against API
+     * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
+     * @return mixed
+     */
+    public function get($entrypoint)
+    {
+        return $this->makeAPIRequest('GET', $entrypoint);
+    }
+
+    /**
+     * General purpose 'POST' request against API
+     * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
+     * @param $json string contains JSON formatted data to post
+     * @return mixed
+     */
+    public function post($entrypoint, $json)
+    {
+        return $this->makeAPIRequest('POST', $entrypoint, $json);
+    }
+
+    /**
+     * General purpose 'PUT' request against API
+     * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
+     * @return mixed string contains JSON formatted data to put
+     */
+    public function put($entrypoint, $json)
+    {
+        return $this->makeAPIRequest('PUT', $entrypoint, $json);
+    }
+
+
+    /**
      * This is primarily to facilitate testing - we can add a MockHandler to return
      * test responses
      *
@@ -174,21 +209,12 @@ class Client implements LoggerAwareInterface
         return $this;
     }
 
-    public function get($entrypoint)
-    {
-        return $this->makeAPIRequest('GET', $entrypoint);
-    }
-
-    public function post($entrypoint, $json)
-    {
-        return $this->makeAPIRequest('POST', $entrypoint, $json);
-    }
-
-    public function put($entrypoint, $json)
-    {
-        return $this->makeAPIRequest('PUT', $entrypoint, $json);
-    }
-
+    /**
+     * @param $method
+     * @param $entrypoint
+     * @param null $json
+     * @return \stdClass object containing JSON decoded response
+     */
     protected function makeAPIRequest($method, $entrypoint, $json = null)
     {
         $this->log->debug('{method} {entrypoint} {json}', [
@@ -206,7 +232,7 @@ class Client implements LoggerAwareInterface
             $headers['Content-Type'] = 'application/json';
         }
 
-        $request = new \GuzzleHttp\Psr7\Request($method, $url, $headers, $json);
+        $request = new Request($method, $url, $headers, $json);
 
         try {
             $response = $client->send($request);
@@ -246,19 +272,17 @@ class Client implements LoggerAwareInterface
     public function getEntryPoint($name)
     {
         if (!is_array($this->entrypoint)) {
-            $cache = $this->getCache();
             $key = 'entrypoint' . $this->clientId;
-            if ($cache->has($key)) {
-                $this->log->debug('loading entrypoint from persistent cache');
 
-                /** @var \stdClass $entry */
-                $entry = $cache->get($key);
-                $this->entrypoint = $entry;
+            if ($this->cacheHas($key)) {
+                $this->log->debug('loading entrypoint from persistent cache');
+                $this->entrypoint = $this->cacheGet($key);
+                ;
             } else {
                 $this->log->debug('entrypoint not cached, requesting from API');
                 $client = $this->getClient();
 
-                $request = new \GuzzleHttp\Psr7\Request('GET', 'api', [
+                $request = new Request('GET', 'api', [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                 ]);
@@ -270,10 +294,11 @@ class Client implements LoggerAwareInterface
                     if (is_object($payload) && isset($payload->_links)) {
                         $this->log->info('entrypoint loaded from API and cached');
                         $this->entrypoint = $payload;
-                        $cache->set($key, $payload, 86400);
+
+                        $this->cacheSet($key, $payload, 86400);
                     }
                 } catch (RequestException $e) {
-                    throw $e;
+                    throw new APIException("Unable to obtain LibLynx API entry point resource", 0, $e);
                 }
             }
         } else {
@@ -281,16 +306,63 @@ class Client implements LoggerAwareInterface
         }
 
         if (!isset($this->entrypoint->_links->$name->href)) {
-            throw new \InvalidArgumentException("Invalid LibLynx API entrypoint $name requested");
+            throw new LogicException("Invalid LibLynx API entrypoint $name requested");
         }
 
         return $this->entrypoint->_links->$name->href;
     }
 
+    /**
+     * @param $key
+     * @return bool
+     * @codeCoverageIgnore
+     */
+    protected function cacheHas($key)
+    {
+        $cache = $this->getCache();
+        try {
+            return $cache->has($key);
+        } catch (InvalidArgumentException $e) {
+            throw new LogicException("Cache check rejected key $key", 0, $e);
+        }
+    }
+
+    /**
+     * @param $key
+     * @return mixed
+     * @codeCoverageIgnore
+     */
+    protected function cacheGet($key)
+    {
+        $cache = $this->getCache();
+        try {
+            return $cache->get($key);
+        } catch (InvalidArgumentException $e) {
+            throw new LogicException("Cache retrieval rejected key $key", 0, $e);
+        }
+    }
+
+    /**
+     * @param $key
+     * @param $value
+     * @param null $ttl
+     * @return mixed
+     * @codeCoverageIgnore
+     */
+    protected function cacheSet($key, $value, $ttl = null)
+    {
+        $cache = $this->getCache();
+        try {
+            return $cache->set($key, $value, $ttl);
+        } catch (InvalidArgumentException $e) {
+            throw new LogicException("Cache storage rejected key $key", 0, $e);
+        }
+    }
+
     public function getCache()
     {
         if (is_null($this->cache)) {
-            throw new \RuntimeException('LibLynx Connect Client requires a PSR-16 compatible cache');
+            throw new LogicException('LibLynx Connect Client requires a PSR-16 compatible cache');
         }
         return $this->cache;
     }
@@ -306,7 +378,7 @@ class Client implements LoggerAwareInterface
     protected function getClient()
     {
         if (empty($this->clientId)) {
-            throw new \BadMethodCallException('Cannot make API calls until setCredentials has been called');
+            throw new LogicException('Cannot make API calls until setCredentials has been called');
         }
         if (!is_object($this->guzzle)) {
             //create our handler stack (which may be mocked in tests) and add the oauth and cache middleware
