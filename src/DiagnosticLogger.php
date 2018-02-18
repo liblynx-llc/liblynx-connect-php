@@ -22,7 +22,7 @@ class DiagnosticLogger extends AbstractLogger
 
     public function dumpConsole($useColours = true)
     {
-        $colours=[
+        $colours = [
             'alert' => "\e[97m\e[41m",
             'emergency' => "\e[97m\e[41m",
             'critical' => "\e[97m\e[41m",
@@ -33,30 +33,26 @@ class DiagnosticLogger extends AbstractLogger
             'debug' => "\e[2m",
         ];
 
-        $col='';
-        $reset=$useColours ? "\e[0m" : '';
+        $reset = $useColours ? "\e[0m" : '';
 
         foreach ($this->logs as $log) {
-            if ($useColours) {
-                $col = $colours[$log[0]];
-            }
-
-            echo $col. $log[0] . ': ' . $this->interpolateMessage($log[1], $log[2]) . $reset . "\n";
+            $col = $useColours ? $colours[$log[0]] : '';
+            echo $col . $log[0] . ': ' . $this->interpolateMessage($log[1], $log[2]) . $reset . "\n";
         }
     }
 
     public function dumpHTML($echo = true)
     {
-        $html='<div class="liblynx-diagnostic-log">';
-        $html.='<table class="table"><thead><tr><th>Level</th><th>Message</th></tr></thead><tbody>';
-        $html.="\n";
+        $html = '<div class="liblynx-diagnostic-log">';
+        $html .= '<table class="table"><thead><tr><th>Level</th><th>Message</th></tr></thead><tbody>';
+        $html .= "\n";
 
         foreach ($this->logs as $log) {
-            $html.='<tr class="level-'.$log[0].'"><td>'.$log[0].'</td><td>'.
-                htmlentities($this->interpolateMessage($log[1], $log[2])).
+            $html .= '<tr class="level-' . $log[0] . '"><td>' . $log[0] . '</td><td>' .
+                htmlentities($this->interpolateMessage($log[1], $log[2])) .
                 "</td></tr>\n";
         }
-        $html.="</tbody></table></div>\n";
+        $html .= "</tbody></table></div>\n";
 
         if ($echo) {
             echo $html;
