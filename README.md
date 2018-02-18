@@ -84,17 +84,22 @@ A simple integration involves obtaining an account from data provided in the cur
 request superglobals
 
 ```php
-$identification = $liblynx->authorize(Identification::fromArray($_SERVER));
-if ($identification->isIdentified()) {
-    //visitor is identified, you can now check their access rights
-} elseif ($identification->requiresWAYF()) {
-     //to find our who the visitor is, redirect to WAYF page
-     $url = $identification->getWayfUrl();
-     header("Location: $url");
-     exit;
-} else {
-    //liblynx failed - check diagnostic logs
-}
+try {
+    $identification = $liblynx->authorize(IdentificationRequest::fromArray($_SERVER));
+    if ($identification->isIdentified()) {
+        //visitor is identified, you can now check their access rights
+    } elseif ($identification->requiresWAYF()) {
+         //to find our who the visitor is, redirect to WAYF page
+         $url = $identification->getWayfUrl();
+         header("Location: $url");
+         exit;
+    } else {
+        //liblynx failed - check diagnostic logs
+    }
+} catch (LibLynx\Connect\Exception\LibLynxException $e) {
+    //exceptions are throw for API failures and erroneous integrations
+    throw $e;
+}    
 ```
 
 See the `examples` folder for other examples:
