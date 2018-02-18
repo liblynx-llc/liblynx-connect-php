@@ -121,10 +121,10 @@ class Client implements LoggerAwareInterface
     /**
      * Attempt an identification using the LibLynx API
      *
-     * @param Identification $request
+     * @param IdentificationRequest $request
      * @return Identification|null
      */
-    public function authorize(Identification $request)
+    public function authorize(IdentificationRequest $request)
     {
         $identification = null;
 
@@ -136,7 +136,7 @@ class Client implements LoggerAwareInterface
             return null;
         }
 
-        $identification = Identification::fromJSON($response);
+        $identification = new Identification($response);
         $this->log->info(
             'Identification request for ip {ip} on URL {url} succeeded status={status} id={id}',
             [

@@ -33,7 +33,7 @@ class ClientTest extends TestCase
         $liblynx = new Client();
         $liblynx->setCredentials('testid', 'testsecret');
 
-        $req = new Identification();
+        $req = new IdentificationRequest();
         $req->ip = '1.2.3.4';
         $req->referrer = 'http://example.com';
         $req->url = 'http://example.com';
@@ -49,7 +49,7 @@ class ClientTest extends TestCase
         $liblynx = new Client();
         $liblynx->setCache(new ArrayCache());
 
-        $req = new Identification();
+        $req = new IdentificationRequest();
         $req->ip = '1.2.3.4';
         $req->referrer = 'http://example.com';
         $req->url = 'http://example.com';
@@ -79,7 +79,7 @@ class ClientTest extends TestCase
         $liblynx->setOAuth2Handler($mockOAuth);
         $liblynx->setApiHandler($mockAPI);
 
-        $req = new Identification();
+        $req = new IdentificationRequest();
         $req->ip = '1.2.3.4.5';
 
         $liblynx->setCredentials('testid', 'testsecret');
@@ -110,7 +110,7 @@ class ClientTest extends TestCase
         $liblynx->setOAuth2Handler($mockOAuth);
         $liblynx->setApiHandler($mockAPI);
 
-        $req = new Identification();
+        $req = new IdentificationRequest();
         $req->ip = '1.2.3.4';
         $req->referrer = 'http://example.com';
         $req->url = 'http://example.com';
