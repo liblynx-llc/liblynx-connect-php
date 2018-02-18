@@ -126,8 +126,6 @@ class Client implements LoggerAwareInterface
      */
     public function authorize(IdentificationRequest $request)
     {
-        $identification = null;
-
         $payload = $request->getRequestJSON();
         $response = $this->post('@new_identification', $payload);
         if (!isset($response->id)) {
