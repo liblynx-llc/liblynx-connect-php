@@ -9,6 +9,8 @@ namespace LibLynx\Connect;
  * http://stateless.co/hal_specification.html
  *
  * @package LibLynx\Connect
+ *
+ * @property \stdClass $_links
  */
 abstract class LibLynxResource
 {
