@@ -6,6 +6,10 @@ namespace LibLynx\Connect;
  * Provides a simple wrapper around a LibLynx identification resource
  * @package LibLynx\Connect
  *
+ * @property \stdClass $id
+ * @property \stdClass $ip
+ * @property \stdClass $url
+ * @property \stdClass $user_agent
  * @property \stdClass $account
  * @property \stdClass $status
  */
@@ -24,14 +28,5 @@ class Identification extends LibLynxResource
     public function getWayfUrl()
     {
         return $this->getLink('wayf');
-    }
-
-    public function doWayfRedirect()
-    {
-        $url = $this->getWayfUrl();
-        if (!is_null($url)) {
-            header("Location: $url");
-            exit;
-        }
     }
 }
