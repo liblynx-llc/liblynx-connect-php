@@ -6,7 +6,10 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use LibLynx\Connect\Exception\APIException;
+use LibLynx\Connect\Exception\LogicException;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Simple\ArrayCache;
 
 class ClientTest extends TestCase
@@ -26,7 +29,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \RuntimeException
+     * @expectedException \LogicException
      */
     public function testFailsWithoutCache()
     {
@@ -42,7 +45,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \BadMethodCallException
+     * @expectedException \LogicException
      */
     public function testFailsWithoutCredentials()
     {
@@ -123,7 +126,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \GuzzleHttp\Exception\RequestException
+     * @expectedException \LibLynx\Connect\Exception\APIException
      */
     public function testEntryPointFailure()
     {
@@ -148,7 +151,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \InvalidArgumentException
+     * @expectedException \LibLynx\Connect\Exception\LogicException
      */
     public function testUnknownEntryPointFailure()
     {
@@ -166,6 +169,7 @@ class ClientTest extends TestCase
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
         $liblynx->setCache(new ArrayCache());
+        $liblynx->setLogger(new NullLogger());
 
         $liblynx->setOAuth2Handler($mockOAuth);
         $liblynx->setApiHandler($mockAPI);
@@ -256,33 +260,7 @@ JSON;
 
     protected function identifiedIdentificationResponse()
     {
-        $json = <<<JSON
-        {
-          "id": "1fd03a8e5d4dbad4146a38ba15db82c7",
-          "status": "identified",
-          "ip": "1.2.3.66",
-          "url": "http://example.com",
-          "created": "2014-11-13T19:50:45+0000",
-          "account": {
-            "id": 1,
-            "account_name": "Referrer Testing Account",
-            "publisher": {
-              "id": 1,
-              "publisher_name": "LibLynx"
-            },
-            "type": "publisher"
-          },
-          "publisher": {
-            "id": 1,
-            "publisher_name": "LibLynx"
-          },
-          "_links": {
-            "self": {
-              "href": "http://172.17.8.101/api/identifications/1fd03a8e5d4dbad4146a38ba15db82c7"
-            }
-          }
-        }
-JSON;
+        $json = file_get_contents(__DIR__ . '/assets/identification1.json');
         return new Response(200, ['Content-Type' => 'application/json'], $json);
     }
 
