@@ -2,6 +2,8 @@
 
 namespace LibLynx\Connect;
 
+use LibLynx\Connect\Exception\LogicException;
+
 /**
  * Class LibLynxResource provides a base class for all HAL-style resources retrieved from the LibLynx API.
  *
@@ -24,14 +26,24 @@ abstract class LibLynxResource
 
     public function __get($name)
     {
-        throw new \RuntimeException("No value called $name");
+        throw new LogicException("No value called $name");
     }
 
+    /**
+     * @param $name
+     * @return mixed
+     * @throws LogicException if link with name isn't present
+     */
     public function getLink($name)
     {
         if (isset($this->_links->$name)) {
             return $this->_links->$name->href;
         }
-        return false;
+        throw new LogicException("resource did not contain a ".$name." link");
+    }
+
+    public function hasLink($name)
+    {
+        return isset($this->_links->$name);
     }
 }
