@@ -49,7 +49,7 @@ class Client implements LoggerAwareInterface
     /** @var GuzzleClient HTTP client for API requests */
     private $guzzle;
 
-    /** @var array entry point resource */
+    /** @var \stdClass entry point resource */
     private $entrypoint;
 
     /** @var callable RequestStack handler for API requests */
@@ -130,22 +130,22 @@ class Client implements LoggerAwareInterface
 
         $payload = $request->getRequestJSON();
         $response = $this->post('@new_identification', $payload);
-        if (isset($response->id)) {
-            $identification = Identification::fromJSON($response);
-            $this->log->info(
-                'Identification request for ip {ip} on URL {url} succeeded status={status} id={id}',
-                [
-                    'status' => $identification->status,
-                    'id' => $identification->id,
-                    'ip' => $identification->ip,
-                    'url' => $identification->url
-                ]
-            );
-        } else {
+        if (!isset($response->id)) {
             //failed
             $this->log->critical('Identification request failed {payload}', ['payload' => $payload]);
             return null;
         }
+
+        $identification = Identification::fromJSON($response);
+        $this->log->info(
+            'Identification request for ip {ip} on URL {url} succeeded status={status} id={id}',
+            [
+                'status' => $identification->status,
+                'id' => $identification->id,
+                'ip' => $identification->ip,
+                'url' => $identification->url
+            ]
+        );
 
         return $identification;
     }
@@ -204,7 +204,7 @@ class Client implements LoggerAwareInterface
         $this->log->debug('{entrypoint} = {url}', ['entrypoint' => $entrypoint, 'url' => $url]);
 
         $headers = ['Accept' => 'application/json'];
-        if (!empty($body)) {
+        if (!empty($json)) {
             $headers['Content-Type'] = 'application/json';
         }
 
@@ -252,7 +252,10 @@ class Client implements LoggerAwareInterface
             $key = 'entrypoint' . $this->clientId;
             if ($cache->has($key)) {
                 $this->log->debug('loading entrypoint from persistent cache');
-                $this->entrypoint = $cache->get($key);
+
+                /** @var \stdClass $entry */
+                $entry = $cache->get($key);
+                $this->entrypoint = $entry;
             } else {
                 $this->log->debug('entrypoint not cached, requesting from API');
                 $client = $this->getClient();
