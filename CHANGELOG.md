@@ -17,6 +17,11 @@ This release is not backwards compatible with 0.1.0
 - Additional test coverage
 - Exception classes for all exceptions thrown
 
+### Changed
+
+- Failures managed by the API, e.g. returning 400 responses will result in
+  an `APIException` being thrown
+
 ### Removed
 
 - `Identification::doWayfRedirect` removed as too simplistic for real-world use. Redirection example added to README.md
