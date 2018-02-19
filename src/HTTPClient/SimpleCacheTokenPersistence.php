@@ -1,6 +1,6 @@
 <?php
 
-namespace LibLynx\Connect;
+namespace LibLynx\Connect\HTTPClient;
 
 use kamermans\OAuth2\Persistence\TokenPersistenceInterface;
 use kamermans\OAuth2\Token\TokenInterface;
