@@ -23,18 +23,10 @@ class IdentificationRequest
     public static function fromArray($vars)
     {
         $id = new IdentificationRequest;
-        if (isset($vars['REMOTE_ADDR'])) {
-            $id->ip = $vars['REMOTE_ADDR'];
-        }
-        if (isset($vars['HTTP_REFERER'])) {
-            $id->referrer = $vars['HTTP_REFERER'];
-        }
-        if (isset($vars['REQUEST_URI'])) {
-            $id->url = $vars['REQUEST_URI'];
-        }
-        if (isset($vars['HTTP_USER_AGENT'])) {
-            $id->user_agent = $vars['HTTP_USER_AGENT'];
-        }
+        $id->ip = $vars['REMOTE_ADDR'] ?? null;
+        $id->referrer = $vars['HTTP_REFERER'] ?? null;
+        $id->url = $vars['REQUEST_URI'] ?? null;
+        $id->user_agent = $vars['HTTP_USER_AGENT'] ?? null;
         return $id;
     }
 
