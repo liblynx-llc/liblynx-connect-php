@@ -247,7 +247,10 @@ class Client implements LoggerAwareInterface
     {
         if ($nameOrUrl[0] === '@') {
             $resolved = $this->getEntryPoint($nameOrUrl);
-            $this->log->debug('Entrypoint {entrypoint} resolves to {url}', ['entrypoint' => $nameOrUrl, 'url' => $resolved]);
+            $this->log->debug(
+                'Entrypoint {entrypoint} resolves to {url}',
+                ['entrypoint' => $nameOrUrl, 'url' => $resolved]
+            );
             return $resolved;
         }
         //it's a URL
