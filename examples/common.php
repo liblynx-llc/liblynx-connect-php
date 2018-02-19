@@ -5,11 +5,7 @@
 
 function ask($prompt, $regex, $default = '')
 {
-    $msg = $prompt;
-    if (!empty($default)) {
-        $msg .= " ($default)";
-    }
-    $msg .= ": ";
+    $msg = $prompt . (empty($default) ? ': ' : " ($default): ");
 
     $valid = false;
     $result = '';
@@ -18,7 +14,7 @@ function ask($prompt, $regex, $default = '')
         if (empty($result)) {
             $result = $default;
         }
-        $valid = preg_match($regex, $result);
+        $valid = preg_match($regex, $result) !== false;
         if (!$valid) {
             echo "$result is not valid - please re-enter...\n";
         }

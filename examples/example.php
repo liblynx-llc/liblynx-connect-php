@@ -50,13 +50,13 @@ $liblynx->setCache($cache);
 $liblynx->setCredentials($clientId, $clientSecret);
 
 //build our our identification request
-$identification = new Identification();
-$identification->ip = $ip;
-$identification->url = $url;
-$identification->user_agent = 'LibLynx-Client-Example-1';
+$req = new IdentificationRequest();
+$req->ip = $ip;
+$req->url = $url;
+$req->user_agent = 'LibLynx-Client-Example-1';
 
 //and away we go!
-$identification = $liblynx->authorize($identification);
+$identification = $liblynx->authorize($req);
 
 heading('Identification response');
 if ($identification) {
@@ -64,7 +64,7 @@ if ($identification) {
         //good to go
         echo "identified as account named {$identification->account->account_name}\n";
     } else {
-        echo "requires WAYF at {$identification->_links->wayf->href}\n";
+        echo "requires WAYF at ".$identification->getWayfUrl()."\n";
     }
 } else {
     //liblynx failed

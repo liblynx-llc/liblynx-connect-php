@@ -1,0 +1,19 @@
+{
+  "id": "1fd03a8e5d4dbad4146a38ba15db82c7",
+  "status": "wayf",
+  "ip": "1.2.3.66",
+  "url": "http://example.com",
+  "created": "2014-11-13T19:50:45+0000",
+  "publisher": {
+    "id": 1,
+    "publisher_name": "LibLynx"
+  },
+  "_links": {
+    "self": {
+      "href": "http://172.17.8.101/api/identifications/1fd03a8e5d4dbad4146a38ba15db82c7"
+    },
+    "wayf": {
+      "href": "http://172.17.8.101/wayf/1fd03a8e5d4dbad4146a38ba15db82c7"
+    }
+  }
+}
