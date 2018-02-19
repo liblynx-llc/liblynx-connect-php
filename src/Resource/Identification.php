@@ -1,6 +1,6 @@
 <?php
 
-namespace LibLynx\Connect;
+namespace LibLynx\Connect\Resource;
 
 /**
  * Provides a simple wrapper around a LibLynx identification resource
@@ -13,7 +13,7 @@ namespace LibLynx\Connect;
  * @property \stdClass $account
  * @property \stdClass $status
  */
-class Identification extends LibLynxResource
+class Identification extends AbstractResource
 {
     public function isIdentified()
     {
