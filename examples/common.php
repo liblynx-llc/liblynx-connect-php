@@ -5,11 +5,7 @@
 
 function ask($prompt, $regex, $default = '')
 {
-    $msg = $prompt;
-    if (!empty($default)) {
-        $msg .= " ($default)";
-    }
-    $msg .= ": ";
+    $msg = $prompt . (empty($default) ? ': ' : " ($default): ");
 
     $valid = false;
     $result = '';
