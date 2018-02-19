@@ -1,6 +1,6 @@
 <?php
 
-namespace LibLynx\Connect;
+namespace LibLynx\Connect\Resource;
 
 use LibLynx\Connect\Exception\LogicException;
 
@@ -14,7 +14,7 @@ use LibLynx\Connect\Exception\LogicException;
  *
  * @property \stdClass $_links
  */
-abstract class LibLynxResource
+abstract class AbstractResource
 {
     public function __construct($obj)
     {
