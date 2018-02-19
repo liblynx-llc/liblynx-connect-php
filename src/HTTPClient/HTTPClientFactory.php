@@ -53,32 +53,6 @@ class HTTPClientFactory
         return $client;
     }
 
-    /**
-     * This is primarily to facilitate testing - we can add a MockHandler to return
-     * test responses
-     *
-     * @param callable $handler
-     * @return self
-     */
-    public function setAPIHandler(callable $handler)
-    {
-        $this->apiHandler = $handler;
-        return $this;
-    }
-
-    /**
-     * This is primarily to facilitate testing - we can add a MockHandler to return
-     * test responses
-     *
-     * @param callable $handler
-     * @return self
-     */
-    public function setOAuth2Handler(callable $handler)
-    {
-        $this->oauth2Handler = $handler;
-        return $this;
-    }
-
     protected function createOAuth2Middleware($apiRoot, $id, $secret, CacheInterface $cache): OAuth2Middleware
     {
         $handlerStack = HandlerStack::create($this->oauth2Handler);
