@@ -3,6 +3,7 @@
 namespace LibLynx\Connect;
 
 use LibLynx\Connect\Exception\LogicException;
+use LibLynx\Connect\Resource\Identification;
 use PHPUnit\Framework\TestCase;
 
 class IdentificationTest extends TestCase

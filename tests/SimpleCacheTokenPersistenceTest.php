@@ -4,6 +4,7 @@ namespace LibLynx\Connect;
 
 use kamermans\OAuth2\Token\RawToken;
 use kamermans\OAuth2\Token\RawTokenFactory;
+use LibLynx\Connect\HTTPClient\SimpleCacheTokenPersistence;
 use Symfony\Component\Cache\Simple\ArrayCache;
 use PHPUnit\Framework\TestCase;
 

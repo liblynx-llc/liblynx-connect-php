@@ -6,8 +6,7 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use LibLynx\Connect\Exception\APIException;
-use LibLynx\Connect\Exception\LogicException;
+use LibLynx\Connect\HTTPClient\HTTPClientFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Simple\ArrayCache;
@@ -29,7 +28,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \LogicException
+     * @expectedException \LibLynx\Connect\Exception\LogicException
      */
     public function testFailsWithoutCache()
     {
@@ -45,7 +44,7 @@ class ClientTest extends TestCase
     }
 
     /**
-     * @expectedException \LogicException
+     * @expectedException \LibLynx\Connect\Exception\LogicException
      */
     public function testFailsWithoutCredentials()
     {
@@ -73,14 +72,12 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx = new Client();
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
 
         //we use an in-memory cache for testing
         $liblynx->setCache(new ArrayCache());
-
-        $liblynx->setOAuth2Handler($mockOAuth);
-        $liblynx->setApiHandler($mockAPI);
 
         $req = new IdentificationRequest();
         $req->ip = '1.2.3.4.5';
@@ -104,14 +101,13 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx = new Client();
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
 
         //we use an in-memory cache for testing
         $liblynx->setCache(new ArrayCache());
 
-        $liblynx->setOAuth2Handler($mockOAuth);
-        $liblynx->setApiHandler($mockAPI);
 
         $req = new IdentificationRequest();
         $req->ip = '1.2.3.4';
@@ -139,13 +135,11 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx = new Client();
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
         $liblynx->setCache(new ArrayCache());
-
-        $liblynx->setOAuth2Handler($mockOAuth);
-        $liblynx->setApiHandler($mockAPI);
 
         $liblynx->getEntryPoint('@new_identification');
     }
@@ -165,14 +159,12 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx = new Client();
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
         $liblynx->setCache(new ArrayCache());
         $liblynx->setLogger(new NullLogger());
-
-        $liblynx->setOAuth2Handler($mockOAuth);
-        $liblynx->setApiHandler($mockAPI);
 
         $liblynx->getEntryPoint('@bad_entry');
     }
@@ -192,13 +184,11 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx = new Client();
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
         $liblynx->setCache($cache);
-
-        $liblynx->setOAuth2Handler($mockOAuth);
-        $liblynx->setApiHandler($mockAPI);
 
         $this->assertEquals('http://localhost/api/identifications', $liblynx->getEntryPoint('@new_identification'));
 
@@ -214,13 +204,11 @@ class ClientTest extends TestCase
             new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
         ]);
 
-        $liblynx2 = new Client();
+        $httpFactory2 = new HTTPClientFactory($mockAPI2, $mockOAuth2);
+        $liblynx2 = new Client($httpFactory2);
         $liblynx2->setAPIRoot('http://localhost');
         $liblynx2->setCredentials('testid', 'testsecret');
         $liblynx2->setCache($cache);
-
-        $liblynx2->setOAuth2Handler($mockOAuth2);
-        $liblynx2->setApiHandler($mockAPI2);
 
         //if this succeeds, then both the OAuth token and the entry point resource were successfully cached
         $this->assertEquals('http://localhost/api/identifications', $liblynx2->getEntryPoint('@new_identification'));
