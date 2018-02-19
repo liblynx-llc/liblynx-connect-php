@@ -187,14 +187,9 @@ class Client implements LoggerAwareInterface
      */
     protected function makeAPIRequest($method, $entrypoint, $json = null)
     {
-        $this->log->debug('{method} {entrypoint} {json}', [
-            'method' => $method,
-            'entrypoint' => $entrypoint,
-            'json' => $json
-        ]);
+        $this->log->debug('{method} {entry} {json}', ['method' => $method, 'entry' => $entrypoint, 'json' => $json]);
         $url = $this->resolveEntryPoint($entrypoint);
         $client = $this->getClient();
-
 
         $headers = ['Accept' => 'application/json'];
         if (!empty($json)) {
@@ -205,12 +200,10 @@ class Client implements LoggerAwareInterface
 
         try {
             $response = $client->send($request);
-
-            $this->log->debug('{method} {entrypoint} succeeded {status}', [
-                'method' => $method,
-                'entrypoint' => $entrypoint,
-                'status' => $response->getStatusCode(),
-            ]);
+            $this->log->debug(
+                '{method} {entry} succeeded {status}',
+                ['method' => $method, 'entry' => $entrypoint, 'status' => $response->getStatusCode()]
+            );
         } catch (RequestException $e) {
             //we usually have a response available, but it's not guaranteed
             $response = $e->getResponse();
@@ -228,19 +221,14 @@ class Client implements LoggerAwareInterface
             throw new APIException("$method $entrypoint request failed", $e->getCode(), $e);
         } catch (GuzzleException $e) {
             $this->log->critical(
-                '{method} {entrypoint} {json} failed',
-                [
-                    'method' => $method,
-                    'json' => $json,
-                    'entrypoint' => $entrypoint,
-                ]
+                '{method} {entry} {json} failed',
+                ['method' => $method, 'json' => $json, 'entry' => $entrypoint]
             );
 
             throw new APIException("$method $entrypoint failed", 0, $e);
         }
 
-        $payload = json_decode($response->getBody());
-        return $payload;
+        return json_decode($response->getBody());
     }
 
     public function resolveEntryPoint($nameOrUrl)
@@ -274,7 +262,6 @@ class Client implements LoggerAwareInterface
 
     protected function getEntrypointResource()
     {
-        $entrypointResource = null;
         $key = 'entrypoint' . $this->clientId;
 
         $cache = $this->getCache();
