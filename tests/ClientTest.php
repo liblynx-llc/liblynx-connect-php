@@ -6,6 +6,7 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use LibLynx\Connect\Exception\APIException;
 use LibLynx\Connect\HTTPClient\HTTPClientFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -59,6 +60,9 @@ class ClientTest extends TestCase
         $liblynx->authorize($req);
     }
 
+    /**
+     * @expectedException \LibLynx\Connect\Exception\APIException
+     */
     public function testBadIdentification()
     {
         $mockOAuth = new MockHandler([
@@ -85,7 +89,6 @@ class ClientTest extends TestCase
         $liblynx->setCredentials('testid', 'testsecret');
 
         $identification = $liblynx->authorize($req);
-        $this->assertNull($identification);
     }
 
     public function testPositiveIdentification()
