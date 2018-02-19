@@ -2,22 +2,18 @@
 
 namespace LibLynx\Connect;
 
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Request;
-use kamermans\OAuth2\GrantType\ClientCredentials;
-use kamermans\OAuth2\OAuth2Middleware;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Client as GuzzleClient;
-use Kevinrob\GuzzleCache\CacheMiddleware;
-use Kevinrob\GuzzleCache\Storage\Psr16CacheStorage;
-use Kevinrob\GuzzleCache\Strategy\PrivateCacheStrategy;
 use LibLynx\Connect\Exception\APIException;
 use LibLynx\Connect\Exception\LogicException;
+use LibLynx\Connect\HTTPClient\HTTPClientFactory;
+use LibLynx\Connect\Resource\Identification;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
-use Psr\SimpleCache\InvalidArgumentException;
 
 /**
  * LibLynx Connect API client
@@ -49,17 +45,11 @@ class Client implements LoggerAwareInterface
     /** @var string client secret obtain from LibLynx Connect admin portal */
     private $clientSecret;
 
-    /** @var GuzzleClient HTTP client for API requests */
+    /** @var ClientInterface HTTP client for API requests */
     private $guzzle;
 
     /** @var \stdClass entry point resource */
     private $entrypoint;
-
-    /** @var callable RequestStack handler for API requests */
-    private $apiHandler = null;
-
-    /** @var callable RequestStack handler for OAuth2 requests */
-    private $oauth2Handler = null;
 
     /** @var CacheInterface */
     protected $cache;
@@ -67,10 +57,13 @@ class Client implements LoggerAwareInterface
     /** @var LoggerInterface */
     protected $log;
 
+    /** @var HTTPClientFactory */
+    protected $httpClientFactory;
+
     /**
      * Create new LibLynx API client
      */
-    public function __construct()
+    public function __construct(HTTPClientFactory $clientFactory = null)
     {
         if (isset($_SERVER['LIBLYNX_CLIENT_ID'])) {
             $this->clientId = $_SERVER['LIBLYNX_CLIENT_ID'];
@@ -80,6 +73,7 @@ class Client implements LoggerAwareInterface
         }
 
         $this->log = new NullLogger();
+        $this->httpClientFactory = $clientFactory ?? new HTTPClientFactory;
     }
 
     /**
@@ -182,46 +176,22 @@ class Client implements LoggerAwareInterface
         return $this->makeAPIRequest('PUT', $entrypoint, $json);
     }
 
-
-    /**
-     * This is primarily to facilitate testing - we can add a MockHandler to return
-     * test responses
-     *
-     * @param callable $handler
-     * @return self
-     */
-    public function setAPIHandler(callable $handler)
-    {
-        $this->apiHandler = $handler;
-        return $this;
-    }
-
-    /**
-     * This is primarily to facilitate testing - we can add a MockHandler to return
-     * test responses
-     *
-     * @param callable $handler
-     * @return self
-     */
-    public function setOAuth2Handler(callable $handler)
-    {
-        $this->oauth2Handler = $handler;
-        return $this;
-    }
-
     /**
      * @param $method
      * @param $entrypoint
      * @param null $json
-     * @return \stdClass object containing JSON decoded response
+     * @return \stdClass object containing JSON decoded response - note this can be an error response for normally
+     *         handled errors
+     * @throws LogicException for integration errors, e.g. not setting a cache
+     * @throws APIException for unexpected API failures
      */
     protected function makeAPIRequest($method, $entrypoint, $json = null)
     {
         $this->log->debug('{method} {entrypoint} {json}', [
-                'method' => $method,
-                'entrypoint' => $entrypoint,
-                'json' => $json
-            ]);
+            'method' => $method,
+            'entrypoint' => $entrypoint,
+            'json' => $json
+        ]);
         $url = $this->resolveEntryPoint($entrypoint);
         $client = $this->getClient();
 
@@ -254,6 +224,18 @@ class Client implements LoggerAwareInterface
                     'body' => $response->getBody()
                 ]
             );
+        } catch (GuzzleException $e) {
+            $this->log->critical(
+                '{method} {entrypoint} {json} failed',
+                [
+                    'method' => $method,
+                    'json' => $json,
+                    'entrypoint' => $entrypoint,
+                ],
+                $e
+            );
+
+            throw new APIException();
         }
 
         $payload = json_decode($response->getBody());
@@ -272,35 +254,7 @@ class Client implements LoggerAwareInterface
     public function getEntryPoint($name)
     {
         if (!is_array($this->entrypoint)) {
-            $key = 'entrypoint' . $this->clientId;
-
-            if ($this->cacheHas($key)) {
-                $this->log->debug('loading entrypoint from persistent cache');
-                $this->entrypoint = $this->cacheGet($key);
-                ;
-            } else {
-                $this->log->debug('entrypoint not cached, requesting from API');
-                $client = $this->getClient();
-
-                $request = new Request('GET', 'api', [
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                ]);
-
-                try {
-                    $response = $client->send($request);
-
-                    $payload = json_decode($response->getBody());
-                    if (is_object($payload) && isset($payload->_links)) {
-                        $this->log->info('entrypoint loaded from API and cached');
-                        $this->entrypoint = $payload;
-
-                        $this->cacheSet($key, $payload, 86400);
-                    }
-                } catch (RequestException $e) {
-                    throw new APIException("Unable to obtain LibLynx API entry point resource", 0, $e);
-                }
-            }
+            $this->entrypoint = $this->loadEntrypointResource();
         } else {
             $this->log->debug('using previously loaded entrypoint');
         }
@@ -312,52 +266,42 @@ class Client implements LoggerAwareInterface
         return $this->entrypoint->_links->$name->href;
     }
 
-    /**
-     * @param $key
-     * @return bool
-     * @codeCoverageIgnore
-     */
-    protected function cacheHas($key)
+    public function loadEntrypointResource()
     {
+        $entrypointResource = null;
+        $key = 'entrypoint' . $this->clientId;
+
         $cache = $this->getCache();
-        try {
-            return $cache->has($key);
-        } catch (InvalidArgumentException $e) {
-            throw new LogicException("Cache check rejected key $key", 0, $e);
+        if ($cache->has($key)) {
+            $this->log->debug('loading entrypoint from persistent cache');
+            $entrypointResource = $cache->get($key);
+            ;
+        } else {
+            $this->log->debug('entrypoint not cached, requesting from API');
+            $client = $this->getClient();
+
+            $request = new Request('GET', 'api', [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ]);
+
+            try {
+                $response = $client->send($request);
+
+                $payload = json_decode($response->getBody());
+                if (is_object($payload) && isset($payload->_links)) {
+                    $this->log->info('entrypoint loaded from API and cached');
+                    $entrypointResource = $payload;
+
+                    $cache->set($key, $payload, 86400);
+                }
+            } catch (GuzzleException $e) {
+                throw new APIException("Unable to obtain LibLynx API entry point resource", 0, $e);
+            }
         }
+        return $entrypointResource;
     }
 
-    /**
-     * @param $key
-     * @return mixed
-     * @codeCoverageIgnore
-     */
-    protected function cacheGet($key)
-    {
-        $cache = $this->getCache();
-        try {
-            return $cache->get($key);
-        } catch (InvalidArgumentException $e) {
-            throw new LogicException("Cache retrieval rejected key $key", 0, $e);
-        }
-    }
-
-    /**
-     * @param $key
-     * @param $value
-     * @param null $ttl
-     * @return mixed
-     * @codeCoverageIgnore
-     */
-    protected function cacheSet($key, $value, $ttl = null)
-    {
-        $cache = $this->getCache();
-        try {
-            return $cache->set($key, $value, $ttl);
-        } catch (InvalidArgumentException $e) {
-            throw new LogicException("Cache storage rejected key $key", 0, $e);
-        }
-    }
 
     public function getCache()
     {
@@ -381,51 +325,14 @@ class Client implements LoggerAwareInterface
             throw new LogicException('Cannot make API calls until setCredentials has been called');
         }
         if (!is_object($this->guzzle)) {
-            //create our handler stack (which may be mocked in tests) and add the oauth and cache middleware
-            $handlerStack = HandlerStack::create($this->apiHandler);
-            $handlerStack->push($this->createOAuth2Middleware());
-            $handlerStack->push($this->createCacheMiddleware(), 'cache');
-
-            //now we can make our client
-            $this->guzzle = new GuzzleClient([
-                'handler' => $handlerStack,
-                'auth' => 'oauth',
-                'base_uri' => $this->apiroot
-            ]);
+            $this->guzzle = $this->httpClientFactory->create(
+                $this->apiroot,
+                $this->clientId,
+                $this->clientSecret,
+                $this->getCache()
+            );
         }
 
         return $this->guzzle;
-    }
-
-    protected function createOAuth2Middleware(): OAuth2Middleware
-    {
-        $handlerStack = HandlerStack::create($this->oauth2Handler);
-
-        // Authorization client - this is used to request OAuth access tokens
-        $reauth_client = new GuzzleClient([
-            'handler' => $handlerStack,
-            // URL for access_token request
-            'base_uri' => $this->apiroot . '/oauth/v2/token',
-        ]);
-        $reauth_config = [
-            "client_id" => $this->clientId,
-            "client_secret" => $this->clientSecret
-        ];
-        $grant_type = new ClientCredentials($reauth_client, $reauth_config);
-        $oauth = new OAuth2Middleware($grant_type);
-
-        //use our cache to store tokens
-        $oauth->setTokenPersistence(new SimpleCacheTokenPersistence($this->getCache()));
-
-        return $oauth;
-    }
-
-    protected function createCacheMiddleware(): CacheMiddleware
-    {
-        return new CacheMiddleware(
-            new PrivateCacheStrategy(
-                new Psr16CacheStorage($this->cache)
-            )
-        );
     }
 }
