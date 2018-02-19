@@ -195,7 +195,6 @@ class Client implements LoggerAwareInterface
         $url = $this->resolveEntryPoint($entrypoint);
         $client = $this->getClient();
 
-        $this->log->debug('{entrypoint} = {url}', ['entrypoint' => $entrypoint, 'url' => $url]);
 
         $headers = ['Accept' => 'application/json'];
         if (!empty($json)) {
@@ -213,6 +212,7 @@ class Client implements LoggerAwareInterface
                 'status' => $response->getStatusCode(),
             ]);
         } catch (RequestException $e) {
+            //we usually have a response available, but it's not guaranteed
             $response = $e->getResponse();
             $this->log->error(
                 '{method} {entrypoint} {json} failed ({status}): {body}',
@@ -220,10 +220,12 @@ class Client implements LoggerAwareInterface
                     'method' => $method,
                     'json' => $json,
                     'entrypoint' => $entrypoint,
-                    'status' => $response->getStatusCode(),
-                    'body' => $response->getBody()
+                    'status' => $response ? $response->getStatusCode() : 0,
+                    'body' => $response ? $response->getBody() : ''
                 ]
             );
+
+            throw new APIException("$method $entrypoint request failed", $e->getCode(), $e);
         } catch (GuzzleException $e) {
             $this->log->critical(
                 '{method} {entrypoint} {json} failed',
@@ -231,11 +233,10 @@ class Client implements LoggerAwareInterface
                     'method' => $method,
                     'json' => $json,
                     'entrypoint' => $entrypoint,
-                ],
-                $e
+                ]
             );
 
-            throw new APIException();
+            throw new APIException("$method $entrypoint failed", 0, $e);
         }
 
         $payload = json_decode($response->getBody());
@@ -245,7 +246,9 @@ class Client implements LoggerAwareInterface
     public function resolveEntryPoint($nameOrUrl)
     {
         if ($nameOrUrl[0] === '@') {
-            return $this->getEntryPoint($nameOrUrl);
+            $resolved = $this->getEntryPoint($nameOrUrl);
+            $this->log->debug('Entrypoint {entrypoint} resolves to {url}', ['entrypoint' => $nameOrUrl, 'url' => $resolved]);
+            return $resolved;
         }
         //it's a URL
         return $nameOrUrl;
@@ -254,7 +257,7 @@ class Client implements LoggerAwareInterface
     public function getEntryPoint($name)
     {
         if (!is_array($this->entrypoint)) {
-            $this->entrypoint = $this->loadEntrypointResource();
+            $this->entrypoint = $this->getEntrypointResource();
         } else {
             $this->log->debug('using previously loaded entrypoint');
         }
@@ -266,7 +269,7 @@ class Client implements LoggerAwareInterface
         return $this->entrypoint->_links->$name->href;
     }
 
-    public function loadEntrypointResource()
+    protected function getEntrypointResource()
     {
         $entrypointResource = null;
         $key = 'entrypoint' . $this->clientId;
@@ -278,30 +281,14 @@ class Client implements LoggerAwareInterface
             ;
         } else {
             $this->log->debug('entrypoint not cached, requesting from API');
-            $client = $this->getClient();
-
-            $request = new Request('GET', 'api', [
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ]);
-
-            try {
-                $response = $client->send($request);
-
-                $payload = json_decode($response->getBody());
-                if (is_object($payload) && isset($payload->_links)) {
-                    $this->log->info('entrypoint loaded from API and cached');
-                    $entrypointResource = $payload;
-
-                    $cache->set($key, $payload, 86400);
-                }
-            } catch (GuzzleException $e) {
-                throw new APIException("Unable to obtain LibLynx API entry point resource", 0, $e);
-            }
+            $entrypointResource = $this->get('api');
+            $cache->set($key, $entrypointResource, 86400);
+            $this->log->info('entrypoint loaded from API and cached');
         }
+
+
         return $entrypointResource;
     }
-
 
     public function getCache()
     {
