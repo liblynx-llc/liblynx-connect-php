@@ -16,34 +16,40 @@ use LibLynx\Connect\Exception\LogicException;
  */
 abstract class AbstractResource
 {
-    public function __construct($obj)
+    /** @var array<mixed> */
+    private array $data = [];
+
+    /**
+     * @param array<mixed> $data
+     */
+    public function __construct(array $data)
     {
-        $vars = get_object_vars($obj);
-        foreach ($vars as $name => $value) {
-            $this->$name = $value;
-        }
+        $this->data = $data;
     }
 
-    public function __get($name)
+    public function getJson(): string
     {
+        return json_encode($this->data, JSON_PRETTY_PRINT);
+    }
+
+    public function __get(string $name): mixed
+    {
+        if (array_key_exists($name, $this->data)) {
+            return $this->data[$name];
+        }
         throw new LogicException("No value called $name");
     }
 
-    /**
-     * @param $name
-     * @return mixed
-     * @throws LogicException if link with name isn't present
-     */
-    public function getLink($name)
+    public function getLink(string $name): string
     {
-        if (isset($this->_links->$name)) {
-            return $this->_links->$name->href;
+        if (isset($this->data['_links'][$name])) {
+            return $this->data['_links'][$name]['href'];
         }
         throw new LogicException("resource did not contain a ".$name." link");
     }
 
-    public function hasLink($name)
+    public function hasLink(string $name): bool
     {
-        return isset($this->_links->$name);
+        return isset($this->data['_links'][$name]);
     }
 }

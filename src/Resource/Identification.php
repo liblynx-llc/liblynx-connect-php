@@ -15,18 +15,31 @@ namespace LibLynx\Connect\Resource;
  */
 class Identification extends AbstractResource
 {
-    public function isIdentified()
+    public function isIdentified(): bool
     {
         return $this->status == 'identified';
     }
 
-    public function requiresWayf()
+    public function requiresWayf(): bool
     {
         return $this->status == 'wayf';
     }
 
-    public function getWayfUrl()
+    public function limitReached(): bool
+    {
+        return $this->status == 'concurrency-denial';
+    }
+
+    public function getWayfUrl(): string
     {
         return $this->getLink('wayf');
+    }
+
+    public function hasAuthorization(string $unitCode, string $rights = 'view'): bool
+    {
+        if (isset($this->authorizations[$unitCode][$rights])) {
+            return $this->authorizations[$unitCode][$rights] == 'authorized';
+        }
+        return false;
     }
 }

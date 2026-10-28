@@ -53,16 +53,17 @@ $liblynx->setCredentials('your client id', 'your client secret');
 To work as efficiently as possible, the client caches API responses such as the entrypoint
 resource. Any PSR-16 compatible cache can be used, for example [symfony/cache](https://packagist.org/packages/symfony/cache)
 
-For testing, you could use the `ArrayCache` from symfony/cache - install as follows:
+For testing, you could use the `ArrayAdapter` from symfony/cache - install as follows:
 
 ``` bash
 $ composer require symfony/cache
 ```
 
-Then create and use an `ArrayCache` as follows
+Then create and use an `ArrayAdapter` as follows
 
 ```php
-$cache=new \Symfony\Component\Cache\Simple\ArrayCache;
+$arrayAdapter = new \Symfony\Component\Cache\Adapter\ArrayAdapter();
+$cache = new \Symfony\Component\Cache\Psr16Cache($arrayAdapter);
 $liblynx->setCache($cache);
 ```
 
@@ -106,6 +107,19 @@ See the `examples` folder for other examples:
 
 - `examples\example.php` is a console application which prompts for an IP and URL performs an 
   identification. 
+
+## Testing against the live API
+
+`bin/liblynx-test` is an interactive tool for checking your credentials and integration against
+the live API. On first run it prompts for your client ID, client secret and API root, and saves
+them to `~/.liblynx/credentials.json` (readable only by you) for re-use. It then performs an
+identification request and shows the response along with the full diagnostic log.
+
+``` bash
+$ bin/liblynx-test                                   # prompts for IP and URL
+$ bin/liblynx-test --ip=1.2.3.4 --url=https://www.example.com
+$ bin/liblynx-test --reset                           # re-enter saved credentials
+```
 
 
 ## Change log

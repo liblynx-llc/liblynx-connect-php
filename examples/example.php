@@ -2,7 +2,8 @@
 
 namespace LibLynx\Connect;
 
-use Symfony\Component\Cache\Simple\ArrayCache;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/common.php';
@@ -45,7 +46,7 @@ $logger = new DiagnosticLogger;
 $liblynx->setLogger($logger);
 
 //the LibLynx client requires that you use a PSR-16 cache, for this we simply provide an in-memory array cache
-$cache = new ArrayCache();
+$cache = new Psr16Cache(new ArrayAdapter());
 $liblynx->setCache($cache);
 $liblynx->setCredentials($clientId, $clientSecret);
 
@@ -62,7 +63,7 @@ heading('Identification response');
 if ($identification) {
     if ($identification->isIdentified()) {
         //good to go
-        echo "identified as account named {$identification->account->account_name}\n";
+        echo "identified as account named {$identification->account['account_name']}\n";
     } else {
         echo "requires WAYF at ".$identification->getWayfUrl()."\n";
     }

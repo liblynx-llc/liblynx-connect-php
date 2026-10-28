@@ -21,28 +21,38 @@ use Psr\SimpleCache\CacheInterface;
  */
 class HTTPClientFactory
 {
-    /** @var CacheInterface */
-    protected $cache;
-
-    /** @var callable RequestStack handler for API requests */
+    /** @var ?callable RequestStack handler for API requests */
     private $apiHandler = null;
 
-    /** @var callable RequestStack handler for OAuth2 requests */
+    /** @var ?callable RequestStack handler for OAuth2 requests */
     private $oauth2Handler = null;
 
-    public function __construct(callable $apiHandler = null, callable $oauth2Handler = null)
-    {
+    /** @var ?callable  */
+    private $extraMiddleware = null;
+
+    public function __construct(
+        ?callable $apiHandler = null,
+        ?callable $oauth2Handler = null,
+        ?callable $extraMiddleware = null
+    ) {
         $this->apiHandler = $apiHandler;
         $this->oauth2Handler = $oauth2Handler;
+        $this->extraMiddleware = $extraMiddleware;
     }
 
-    public function create($apiRoot, $clientId, $clientSecret, CacheInterface $cache) : ClientInterface
-    {
+    public function create(
+        string $apiRoot,
+        string $clientId,
+        string $clientSecret,
+        CacheInterface $cache
+    ) : ClientInterface {
         //create our handler stack (which may be mocked in tests) and add the oauth and cache middleware
         $handlerStack = HandlerStack::create($this->apiHandler);
         $handlerStack->push($this->createOAuth2Middleware($apiRoot, $clientId, $clientSecret, $cache));
         $handlerStack->push($this->createCacheMiddleware($cache), 'cache');
-
+        if ($this->extraMiddleware) {
+            $handlerStack->push($this->extraMiddleware);
+        }
         //now we can make our client
         $client = new GuzzleClient([
             'handler' => $handlerStack,
@@ -53,8 +63,12 @@ class HTTPClientFactory
         return $client;
     }
 
-    protected function createOAuth2Middleware($apiRoot, $id, $secret, CacheInterface $cache): OAuth2Middleware
-    {
+    protected function createOAuth2Middleware(
+        string $apiRoot,
+        string $id,
+        string $secret,
+        CacheInterface $cache
+    ): OAuth2Middleware {
         $handlerStack = HandlerStack::create($this->oauth2Handler);
 
         // Authorization client - this is used to request OAuth access tokens
