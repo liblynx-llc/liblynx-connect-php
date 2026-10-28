@@ -16,7 +16,7 @@ class DiagnosticLogger extends AbstractLogger
     /** @var array<array{string, string, array<mixed>}> */
     private array $logs = [];
 
-    public function log($level, $message, array $context = array()): void
+    public function log($level, string|\Stringable $message, array $context = []): void
     {
         $this->logs[] = [$level, $message, $context];
     }
