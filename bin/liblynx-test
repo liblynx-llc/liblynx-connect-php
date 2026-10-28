@@ -1,0 +1,138 @@
+#!/usr/bin/env php
+<?php
+//------------------------------------------------------------------------------------
+// Interactive test tool for exercising the client against the live LibLynx Connect API
+//
+// Usage: bin/liblynx-test [--reset] [--ip=1.2.3.4] [--url=https://...] [--referrer=...]
+//                         [--no-colour] [--help]
+//
+// On first run you are prompted for API credentials and API root, which are saved to
+// ~/.liblynx/credentials.json for re-use. Use --reset to re-enter them.
+//------------------------------------------------------------------------------------
+
+namespace LibLynx\Connect;
+
+use GuzzleHttp\MessageFormatter;
+use GuzzleHttp\Middleware;
+use LibLynx\Connect\Exception\LibLynxException;
+use Psr\Log\LogLevel;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Psr16Cache;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../examples/common.php';
+
+const DEFAULT_API_ROOT = 'https://connect.liblynx.com';
+
+$opts = getopt('h', ['reset', 'ip:', 'url:', 'referrer:', 'no-colour', 'help']);
+if (isset($opts['h']) || isset($opts['help'])) {
+    echo "Usage: bin/liblynx-test [--reset] [--ip=IP] [--url=URL] [--referrer=URL] [--no-colour]\n\n";
+    echo "  --reset      re-enter API credentials even if they are already saved\n";
+    echo "  --ip         IP address to identify (prompted if omitted)\n";
+    echo "  --url        target URL to identify (prompted if omitted)\n";
+    echo "  --referrer   optional referrer URL\n";
+    echo "  --no-colour  disable coloured log output\n";
+    exit(0);
+}
+
+//------------------------------------------------------------------------------------
+// Load or obtain API credentials
+//------------------------------------------------------------------------------------
+$home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '.');
+$credentialsFile = $home . '/.liblynx/credentials.json';
+
+$credentials = null;
+if (!isset($opts['reset']) && is_readable($credentialsFile)) {
+    $credentials = json_decode(file_get_contents($credentialsFile), true);
+    if (!is_array($credentials) || empty($credentials['client_id']) || empty($credentials['client_secret'])) {
+        echo "Ignoring invalid credentials file $credentialsFile\n";
+        $credentials = null;
+    }
+}
+
+if ($credentials === null) {
+    heading('API Credentials');
+    $credentials = [
+        'client_id' => ask('LibLynx API Client ID', '/^\d+_[a-z0-9]+$/i'),
+        'client_secret' => askSecret('LibLynx API Client Secret'),
+        'api_root' => ask('API root', '/^https?:\/\/[^\/]+$/', DEFAULT_API_ROOT),
+    ];
+
+    $dir = dirname($credentialsFile);
+    if (!is_dir($dir) && !mkdir($dir, 0700, true)) {
+        fwrite(STDERR, "Unable to create $dir\n");
+        exit(1);
+    }
+    file_put_contents($credentialsFile, json_encode($credentials, JSON_PRETTY_PRINT) . "\n");
+    chmod($credentialsFile, 0600);
+    echo "\nCredentials saved to $credentialsFile\n";
+} else {
+    echo "Using credentials for client {$credentials['client_id']} from $credentialsFile (--reset to change)\n";
+}
+$apiRoot = $credentials['api_root'] ?? DEFAULT_API_ROOT;
+
+//------------------------------------------------------------------------------------
+// Ask for an IP and target URL to identify
+//------------------------------------------------------------------------------------
+heading('Identification request');
+$req = new IdentificationRequest();
+$req->ip = $opts['ip'] ?? ask('IP address', '/^[0-9a-f.:]+$/i', '1.2.3.4');
+$req->url = $opts['url'] ?? ask('Target URL', '/^https?:\/\/.+$/', 'https://www.example.com');
+$req->referrer = $opts['referrer'] ?? null;
+$req->user_agent = 'LibLynx-Connect-Test-CLI';
+
+//------------------------------------------------------------------------------------
+// Set up the client with a diagnostic logger, and also log the raw HTTP exchanges
+//------------------------------------------------------------------------------------
+$logger = new DiagnosticLogger();
+$httpLog = Middleware::log(
+    $logger,
+    new MessageFormatter('HTTP {method} {uri} -> {code} {phrase}'),
+    LogLevel::DEBUG
+);
+
+$liblynx = new Client(null, $httpLog);
+$liblynx->setLogger($logger);
+//a fresh in-memory cache each run means the full entrypoint/token flow shows in the logs
+$liblynx->setCache(new Psr16Cache(new ArrayAdapter()));
+$liblynx->setAPIRoot($apiRoot);
+$liblynx->setCredentials($credentials['client_id'], $credentials['client_secret']);
+
+echo "\nSending {$req->getRequestJSON()} to $apiRoot\n";
+
+$exitCode = 0;
+try {
+    $identification = $liblynx->authorize($req);
+
+    heading('Identification response');
+    if ($identification === null) {
+        echo "API request failed - see diagnostic logs\n";
+        $exitCode = 1;
+    } else {
+        if ($identification->isIdentified()) {
+            echo "Identified as account '{$identification->account['account_name']}'\n";
+        } elseif ($identification->requiresWayf()) {
+            echo "Requires WAYF at " . $identification->getWayfUrl() . "\n";
+        } else {
+            echo "Status: {$identification->status}\n";
+        }
+        echo "\n" . $identification->getJson() . "\n";
+    }
+} catch (LibLynxException $e) {
+    heading('Exception');
+    echo get_class($e) . ': ' . $e->getMessage() . "\n";
+    if ($e->getPrevious()) {
+        echo 'Caused by ' . get_class($e->getPrevious()) . ': ' . $e->getPrevious()->getMessage() . "\n";
+    }
+    $exitCode = 1;
+} catch (\Throwable $e) {
+    //the library should only throw LibLynxExceptions, so anything else here indicates a bug
+    heading('Unexpected exception');
+    echo get_class($e) . ': ' . $e->getMessage() . "\n";
+    $exitCode = 1;
+}
+
+heading('Diagnostic logs');
+$logger->dumpConsole(!isset($opts['no-colour']) && stream_isatty(STDOUT));
+echo "\n";
+exit($exitCode);

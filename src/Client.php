@@ -6,6 +6,7 @@ use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Request;
+use kamermans\OAuth2\Exception\OAuth2Exception;
 use LibLynx\Connect\Exception\APIException;
 use LibLynx\Connect\Exception\LogicException;
 use LibLynx\Connect\HTTPClient\HTTPClientFactory;
@@ -276,6 +277,14 @@ class Client implements LoggerAwareInterface
             );
 
             throw new APIException("$method $entrypoint failed", 0, $e);
+        } catch (OAuth2Exception $e) {
+            //typically means the client credentials were rejected
+            $this->log->critical(
+                '{method} {entry} failed to obtain OAuth2 access token: {error}',
+                ['method' => $method, 'entry' => $entrypoint, 'error' => $e->getMessage()]
+            );
+
+            throw new APIException("$method $entrypoint failed to obtain access token", 0, $e);
         }
 
         return json_decode($response->getBody(), true);

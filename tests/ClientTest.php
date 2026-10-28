@@ -147,6 +147,30 @@ class ClientTest extends TestCase
         $liblynx->getEntryPoint('@new_identification');
     }
 
+    public function testRejectedCredentials(): void
+    {
+        $this->expectException(\LibLynx\Connect\Exception\APIException::class);
+        $mockOAuth = new MockHandler([
+            new Response(
+                400,
+                ['Content-Type' => 'application/json'],
+                '{"error":"invalid_client","error_description":"The client credentials are invalid"}'
+            )
+        ]);
+
+        $mockAPI = new MockHandler([
+            new RequestException("Unexpected request made by unit test", new Request('GET', 'test'))
+        ]);
+
+        $httpFactory = new HTTPClientFactory($mockAPI, $mockOAuth);
+        $liblynx = new Client($httpFactory);
+        $liblynx->setAPIRoot('http://localhost');
+        $liblynx->setCredentials('testid', 'badsecret');
+        $liblynx->setCache($this->createArrayCache());
+
+        $liblynx->getEntryPoint('@new_identification');
+    }
+
     public function testUnknownEntryPointFailure(): void
     {
         $this->expectException(\LibLynx\Connect\Exception\LogicException::class);

@@ -3,6 +3,10 @@
 All notable changes to `liblynx-connect-php` will be documented in this file,
 following the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
+## 1.0.0 - 2026-10-29
+
+Migrated to php 8.2+
+
 ## 0.4.0 - 2026-10-28
 
 As well as adding support for LibLynx simultaneous usage control, this adds a number of features
