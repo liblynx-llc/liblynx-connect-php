@@ -3,6 +3,10 @@
 All notable changes to `liblynx-connect-php` will be documented in this file,
 following the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
+## 1.0.1 - 2026-10-29
+
+Updated to use psr/log v3
+
 ## 1.0.0 - 2026-10-29
 
 Migrated to php 8.2+
