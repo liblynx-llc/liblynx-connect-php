@@ -5,24 +5,28 @@ namespace LibLynx\Connect;
 use kamermans\OAuth2\Token\RawToken;
 use kamermans\OAuth2\Token\RawTokenFactory;
 use LibLynx\Connect\HTTPClient\SimpleCacheTokenPersistence;
+use Psr\SimpleCache\CacheInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\Cache\Simple\ArrayCache;
 use PHPUnit\Framework\TestCase;
 
 class SimpleCacheTokenPersistenceTest extends TestCase
 {
-    protected $cache;
+    protected CacheInterface $cache;
 
-    public function getInstance()
+    public function getInstance(): SimpleCacheTokenPersistence
     {
         return new SimpleCacheTokenPersistence($this->cache);
     }
 
-    public function setUp()
+    protected function setUp(): void
     {
-        $this->cache = new ArrayCache();
+        $arrayAdapter = new ArrayAdapter();
+        $this->cache = new Psr16Cache($arrayAdapter);
     }
 
-    public function testRestoreTokenCustomKey()
+    public function testRestoreTokenCustomKey(): void
     {
         $simpleCache = new SimpleCacheTokenPersistence($this->cache, 'foo-bar');
 

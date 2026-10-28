@@ -6,15 +6,16 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use LibLynx\Connect\Exception\APIException;
 use LibLynx\Connect\HTTPClient\HTTPClientFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use Symfony\Component\Cache\Simple\ArrayCache;
+use Psr\SimpleCache\CacheInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 
 class ClientTest extends TestCase
 {
-    public function testCredentialsFromServerVars()
+    public function testCredentialsFromServerVars(): void
     {
         $_SERVER['LIBLYNX_CLIENT_ID'] = 'foo';
         $_SERVER['LIBLYNX_CLIENT_SECRET'] = 'bar';
@@ -28,11 +29,9 @@ class ClientTest extends TestCase
         unset($_SERVER['LIBLYNX_CLIENT_SECRET']);
     }
 
-    /**
-     * @expectedException \LibLynx\Connect\Exception\LogicException
-     */
-    public function testFailsWithoutCache()
+    public function testFailsWithoutCache(): void
     {
+        $this->expectException(\LibLynx\Connect\Exception\LogicException::class);
         $liblynx = new Client();
         $liblynx->setCredentials('testid', 'testsecret');
 
@@ -44,13 +43,18 @@ class ClientTest extends TestCase
         $liblynx->authorize($req);
     }
 
-    /**
-     * @expectedException \LibLynx\Connect\Exception\LogicException
-     */
-    public function testFailsWithoutCredentials()
+    private function createArrayCache(): CacheInterface
     {
+        $arrayAdapter = new ArrayAdapter();
+        return new Psr16Cache($arrayAdapter);
+    }
+
+    public function testFailsWithoutCredentials(): void
+    {
+        $this->expectException(\LibLynx\Connect\Exception\LogicException::class);
         $liblynx = new Client();
-        $liblynx->setCache(new ArrayCache());
+
+        $liblynx->setCache($this->createArrayCache());
 
         $req = new IdentificationRequest();
         $req->ip = '1.2.3.4';
@@ -60,11 +64,9 @@ class ClientTest extends TestCase
         $liblynx->authorize($req);
     }
 
-    /**
-     * @expectedException \LibLynx\Connect\Exception\APIException
-     */
-    public function testBadIdentification()
+    public function testBadIdentification(): void
     {
+        $this->expectException(\LibLynx\Connect\Exception\APIException::class);
         $mockOAuth = new MockHandler([
             $this->oauthTokenResponse(),
             new RequestException("Unexpected OAuth request made by unit test", new Request('GET', 'test'))
@@ -81,7 +83,7 @@ class ClientTest extends TestCase
         $liblynx->setAPIRoot('http://localhost');
 
         //we use an in-memory cache for testing
-        $liblynx->setCache(new ArrayCache());
+        $liblynx->setCache($this->createArrayCache());
 
         $req = new IdentificationRequest();
         $req->ip = '1.2.3.4.5';
@@ -91,7 +93,7 @@ class ClientTest extends TestCase
         $identification = $liblynx->authorize($req);
     }
 
-    public function testPositiveIdentification()
+    public function testPositiveIdentification(): void
     {
         $mockOAuth = new MockHandler([
             $this->oauthTokenResponse(),
@@ -109,7 +111,7 @@ class ClientTest extends TestCase
         $liblynx->setAPIRoot('http://localhost');
 
         //we use an in-memory cache for testing
-        $liblynx->setCache(new ArrayCache());
+        $liblynx->setCache($this->createArrayCache());
 
 
         $req = new IdentificationRequest();
@@ -124,11 +126,9 @@ class ClientTest extends TestCase
         $this->assertTrue($identified, 'we expected to be identified');
     }
 
-    /**
-     * @expectedException \LibLynx\Connect\Exception\APIException
-     */
-    public function testEntryPointFailure()
+    public function testEntryPointFailure(): void
     {
+        $this->expectException(\LibLynx\Connect\Exception\APIException::class);
         $mockOAuth = new MockHandler([
             $this->oauthTokenResponse(),
             new RequestException("Unexpected OAuth request made by unit test", new Request('GET', 'test'))
@@ -142,16 +142,14 @@ class ClientTest extends TestCase
         $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
-        $liblynx->setCache(new ArrayCache());
+        $liblynx->setCache($this->createArrayCache());
 
         $liblynx->getEntryPoint('@new_identification');
     }
 
-    /**
-     * @expectedException \LibLynx\Connect\Exception\LogicException
-     */
-    public function testUnknownEntryPointFailure()
+    public function testUnknownEntryPointFailure(): void
     {
+        $this->expectException(\LibLynx\Connect\Exception\LogicException::class);
         $mockOAuth = new MockHandler([
             $this->oauthTokenResponse(),
             new RequestException("Unexpected OAuth request made by unit test", new Request('GET', 'test'))
@@ -166,16 +164,16 @@ class ClientTest extends TestCase
         $liblynx = new Client($httpFactory);
         $liblynx->setAPIRoot('http://localhost');
         $liblynx->setCredentials('testid', 'testsecret');
-        $liblynx->setCache(new ArrayCache());
+        $liblynx->setCache($this->createArrayCache());
         $liblynx->setLogger(new NullLogger());
 
         $liblynx->getEntryPoint('@bad_entry');
     }
 
-    public function testEntryPointCaching()
+    public function testEntryPointCaching(): void
     {
         //we're going to use this cache in two clients
-        $cache = new ArrayCache();
+        $cache = $this->createArrayCache();
 
         $mockOAuth = new MockHandler([
             $this->oauthTokenResponse(),
@@ -217,7 +215,7 @@ class ClientTest extends TestCase
         $this->assertEquals('http://localhost/api/identifications', $liblynx2->getEntryPoint('@new_identification'));
     }
 
-    protected function oauthTokenResponse()
+    protected function oauthTokenResponse(): Response
     {
         $oauthResponse = [
             "access_token" => "YzI0YTE4YjgyZTAzYTMzNWEyOWVhMWU0NjZkZDU3ZDFlODFhNWNmYWI2NjZmODJjYmExZTBlYjNkYzYyYmFhYQ",
@@ -229,7 +227,7 @@ class ClientTest extends TestCase
         return new Response(200, ['Content-Type' => 'application/json'], json_encode($oauthResponse));
     }
 
-    protected function entrypointResponse()
+    protected function entrypointResponse(): Response
     {
         $entrypoints = <<<JSON
         {
@@ -249,13 +247,13 @@ JSON;
         return new Response(200, ['Content-Type' => 'application/json'], $entrypoints);
     }
 
-    protected function identifiedIdentificationResponse()
+    protected function identifiedIdentificationResponse(): Response
     {
         $json = file_get_contents(__DIR__ . '/assets/identification1.json');
         return new Response(200, ['Content-Type' => 'application/json'], $json);
     }
 
-    protected function badIdentificationResponse()
+    protected function badIdentificationResponse(): Response
     {
         $json = <<<JSON
         {

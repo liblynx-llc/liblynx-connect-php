@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 class DiagnosticLoggerTest extends TestCase
 {
-    public function testBasic()
+    public function testBasic(): void
     {
         $logger = new DiagnosticLogger;
         $logger->notice('test{num}', ['num' => 123]);

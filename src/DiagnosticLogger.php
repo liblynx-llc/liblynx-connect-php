@@ -13,14 +13,15 @@ use Psr\Log\AbstractLogger;
  */
 class DiagnosticLogger extends AbstractLogger
 {
-    private $logs = [];
+    /** @var array<array{string, string, array<mixed>}> */
+    private array $logs = [];
 
-    public function log($level, $message, array $context = array())
+    public function log($level, $message, array $context = array()): void
     {
         $this->logs[] = [$level, $message, $context];
     }
 
-    public function dumpConsole($useColours = true)
+    public function dumpConsole(bool $useColours = true): void
     {
         $colours = [
             'alert' => "\e[97m\e[41m",
@@ -41,7 +42,7 @@ class DiagnosticLogger extends AbstractLogger
         }
     }
 
-    public function dumpHTML($echo = true)
+    public function dumpHTML(bool $echo = true): string
     {
         $html = '<div class="liblynx-diagnostic-log">';
         $html .= '<table class="table"><thead><tr><th>Level</th><th>Message</th></tr></thead><tbody>';
@@ -62,8 +63,9 @@ class DiagnosticLogger extends AbstractLogger
 
     /**
      * Interpolates context values into the message placeholders.
+     * @param array<mixed> $context
      */
-    private function interpolateMessage($message, array $context = [])
+    private function interpolateMessage(string $message, ?array $context = []): string
     {
         // build a replacement array with braces around the context keys
         $replace = [];
@@ -79,7 +81,10 @@ class DiagnosticLogger extends AbstractLogger
     }
 
 
-    public function cleanLogs()
+    /**
+     * @return array<mixed>
+     */
+    public function cleanLogs(): array
     {
         $logs = $this->logs;
         $this->logs = [];
@@ -87,7 +92,7 @@ class DiagnosticLogger extends AbstractLogger
         return $logs;
     }
 
-    public function countLogs($level)
+    public function countLogs(string $level): int
     {
         $count = 0;
         foreach ($this->logs as $log) {

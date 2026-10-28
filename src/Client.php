@@ -37,33 +37,29 @@ use Psr\SimpleCache\CacheInterface;
  */
 class Client implements LoggerAwareInterface
 {
-    private $apiroot = 'https://connect.liblynx.com';
+    private string $apiroot = 'https://connect.liblynx.com';
 
     /** @var string client ID obtain from LibLynx Connect admin portal */
-    private $clientId;
+    private ?string $clientId = null;
 
     /** @var string client secret obtain from LibLynx Connect admin portal */
-    private $clientSecret;
+    private ?string $clientSecret = null;
 
-    /** @var ClientInterface HTTP client for API requests */
-    private $guzzle;
+    private ?ClientInterface $guzzle = null;
 
-    /** @var \stdClass entry point resource */
-    private $entrypoint;
+    /** @var array<mixed> $entrypoint */
+    private ?array $entrypoint = null;
 
-    /** @var CacheInterface */
-    protected $cache;
+    protected ?CacheInterface $cache = null;
 
-    /** @var LoggerInterface */
-    protected $log;
+    protected ?LoggerInterface $log = null;
 
-    /** @var HTTPClientFactory */
-    protected $httpClientFactory;
+    protected HTTPClientFactory $httpClientFactory;
 
     /**
      * Create new LibLynx API client
      */
-    public function __construct(HTTPClientFactory $clientFactory = null, callable $middleware = null)
+    public function __construct(?HTTPClientFactory $clientFactory = null, ?callable $middleware = null)
     {
         if (isset($_SERVER['LIBLYNX_CLIENT_ID'])) {
             $this->clientId = $_SERVER['LIBLYNX_CLIENT_ID'];
@@ -86,45 +82,41 @@ class Client implements LoggerAwareInterface
     /**
      * Set API root
      * An alternative root may be provided to you by LibLynx Technical Support
-     * @param string $url
      */
-    public function setAPIRoot($url)
+    public function setAPIRoot(string $url): self
     {
         $this->apiroot = $url;
+        return $this;
     }
 
     /**
      * Set OAuth2.0 client credentials
      * These will be provided to you by LibLynx Technical Support
-     *
-     * @param string $clientId
-     * @param string $clientSecret
      */
-    public function setCredentials($clientId, $clientSecret)
+    public function setCredentials(string $clientId, string $clientSecret): self
     {
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
+        return $this;
     }
 
     /**
-     * @return array containing client id and secret
+     * @return array<string> containing client id and secret
      */
-    public function getCredentials()
+    public function getCredentials(): array
     {
         return [$this->clientId, $this->clientSecret];
     }
 
     /**
      * Attempt an identification using the LibLynx API
-     *
-     * @param IdentificationRequest $request
-     * @return Identification|null
      */
-    public function authorize(IdentificationRequest $request)
+    public function authorize(IdentificationRequest $request): ?Identification
     {
         $payload = $request->getRequestJSON();
         $response = $this->post('@new_identification', $payload);
-        if (!isset($response->id)) {
+
+        if (!isset($response['id'])) {
             //failed
             $this->log->critical('Identification request failed {payload}', ['payload' => $payload]);
             return null;
@@ -146,9 +138,8 @@ class Client implements LoggerAwareInterface
 
     /**
      * If the identification has a simultaneous usage slot open, this will release it early before it times out
-     * @param Identification $identification
      */
-    public function slotRelease(Identification $identification)
+    public function slotRelease(Identification $identification): void
     {
         if ($identification->hasLink('release')) {
             $this->get($identification->getLink('release'));
@@ -163,11 +154,11 @@ class Client implements LoggerAwareInterface
      * @param Identification $identification
      * @return bool|Identification
      */
-    public function slotKeepalive(Identification $identification)
+    public function slotKeepalive(Identification $identification): mixed
     {
         if ($identification->hasLink('keepalive')) {
             $response = $this->get($identification->getLink('keepalive'));
-            if (!isset($response->id)) {
+            if (!isset($response['id'])) {
                 //failed
                 $this->log->critical('keepalive request failed {response}', ['response' => $response]);
                 return false;
@@ -192,7 +183,7 @@ class Client implements LoggerAwareInterface
     {
         if ($identification->hasLink('requestslot')) {
             $response = $this->get($identification->getLink('requestslot'));
-            if (!isset($response->id)) {
+            if (!isset($response['id'])) {
                 //failed
                 $this->log->critical('keepalive request failed {response}', ['response' => $response]);
                 return false;
@@ -208,21 +199,21 @@ class Client implements LoggerAwareInterface
 
     /**
      * General purpose 'GET' request against API
-     * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
-     * @return mixed
+     * @param $entrypoint string contains either an @entrypoint alias or full URL obtained from a resource
+     * @return array<mixed>
      */
-    public function get($entrypoint)
+    public function get(string $entrypoint): array
     {
         return $this->makeAPIRequest('GET', $entrypoint);
     }
 
     /**
      * General purpose 'POST' request against API
-     * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
+     * @param $entrypoint string contains either an @entrypoint alias or full URL obtained from a resource
      * @param $json string contains JSON formatted data to post
-     * @return mixed
+     * @return array<mixed>
      */
-    public function post($entrypoint, $json)
+    public function post(string $entrypoint, string $json): array
     {
         return $this->makeAPIRequest('POST', $entrypoint, $json);
     }
@@ -230,23 +221,21 @@ class Client implements LoggerAwareInterface
     /**
      * General purpose 'PUT' request against API
      * @param $entrypoint string contains either an @entrypoint or full URL obtained from a resource
-     * @return mixed string contains JSON formatted data to put
+     * @param $json string contains JSON formatted data to put
+     * @return array<mixed> string contains JSON formatted data to put
      */
-    public function put($entrypoint, $json)
+    public function put(string $entrypoint, string $json): array
     {
         return $this->makeAPIRequest('PUT', $entrypoint, $json);
     }
 
     /**
-     * @param $method
-     * @param $entrypoint
-     * @param null $json
-     * @return \stdClass object containing JSON decoded response - note this can be an error response for normally
+     * @return array<mixed>  containing JSON decoded response - note this can be an error response for normally
      *         handled errors
      * @throws LogicException for integration errors, e.g. not setting a cache
      * @throws APIException for unexpected API failures
      */
-    protected function makeAPIRequest($method, $entrypoint, $json = null)
+    protected function makeAPIRequest(string $method, string $entrypoint, ?string $json = null): array
     {
         $this->log->debug('{method} {entry} {json}', ['method' => $method, 'entry' => $entrypoint, 'json' => $json]);
         $url = $this->resolveEntryPoint($entrypoint);
@@ -289,10 +278,10 @@ class Client implements LoggerAwareInterface
             throw new APIException("$method $entrypoint failed", 0, $e);
         }
 
-        return json_decode($response->getBody());
+        return json_decode($response->getBody(), true);
     }
 
-    public function resolveEntryPoint($nameOrUrl)
+    public function resolveEntryPoint(string $nameOrUrl): string
     {
         if ($nameOrUrl[0] === '@') {
             $resolved = $this->getEntryPoint($nameOrUrl);
@@ -306,7 +295,7 @@ class Client implements LoggerAwareInterface
         return $nameOrUrl;
     }
 
-    public function getEntryPoint($name)
+    public function getEntryPoint(string $name): string
     {
         if (!is_array($this->entrypoint)) {
             $this->entrypoint = $this->getEntrypointResource();
@@ -314,14 +303,17 @@ class Client implements LoggerAwareInterface
             $this->log->debug('using previously loaded entrypoint');
         }
 
-        if (!isset($this->entrypoint->_links->$name->href)) {
+        if (!isset($this->entrypoint['_links'][$name]['href'])) {
             throw new LogicException("Invalid LibLynx API entrypoint $name requested");
         }
 
-        return $this->entrypoint->_links->$name->href;
+        return $this->entrypoint['_links'][$name]['href'];
     }
 
-    protected function getEntrypointResource()
+    /**
+     * @return array<mixed>
+     */
+    protected function getEntrypointResource(): array
     {
         $key = 'entrypoint' . $this->clientId;
 
@@ -341,7 +333,7 @@ class Client implements LoggerAwareInterface
         return $entrypointResource;
     }
 
-    public function getCache()
+    public function getCache(): ?CacheInterface
     {
         if (is_null($this->cache)) {
             throw new LogicException('LibLynx Connect Client requires a PSR-16 compatible cache');
@@ -349,15 +341,16 @@ class Client implements LoggerAwareInterface
         return $this->cache;
     }
 
-    public function setCache(CacheInterface $cache)
+    public function setCache(CacheInterface $cache): self
     {
         $this->cache = $cache;
+        return $this;
     }
 
     /**
      * Internal helper to provide an OAuth2 capable HTTP client
      */
-    protected function getClient()
+    protected function getClient(): ClientInterface
     {
         if (empty($this->clientId)) {
             throw new LogicException('Cannot make API calls until setCredentials has been called');

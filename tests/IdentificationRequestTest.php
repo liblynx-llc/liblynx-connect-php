@@ -7,12 +7,13 @@ use PHPUnit\Framework\TestCase;
 
 class IdentificationRequestTest extends TestCase
 {
-    public function testFromArray()
+    public function testFromArray(): void
     {
         $server=[
             'REMOTE_ADDR' => '1.1.1.1',
             'HTTP_REFERER' => 'http://example.com/referer',
-            'REQUEST_URI' => 'http://example.com/uri',
+            'HTTP_HOST' => 'example.com',
+            'REQUEST_URI' => '/uri',
             'HTTP_USER_AGENT' => 'test',
         ];
 

@@ -8,19 +8,19 @@ namespace LibLynx\Connect;
  */
 class IdentificationRequest
 {
-    public $url;
-    public $referrer;
-    public $ip;
-    public $user_agent;
+    public string $url;
+    public ?string $referrer;
+    public ?string $ip;
+    public ?string $user_agent;
 
     /**
      * This can be used to rapidly construct a request from superglobals simply by calling
      *
      * $req = class IdentificationRequest::fromArray($_SERVER);
-     * @param $vars
+     * @param array<mixed> $vars
      * @return IdentificationRequest
      */
-    public static function fromArray($vars)
+    public static function fromArray(array $vars)
     {
         $id = new IdentificationRequest;
         $id->ip = $vars['REMOTE_ADDR'] ?? null;
@@ -39,7 +39,7 @@ class IdentificationRequest
         return $id;
     }
 
-    public function getRequestJSON()
+    public function getRequestJSON(): string
     {
         $json = [];
         $allowed = ['url', 'referrer', 'user_agent', 'ip'];
