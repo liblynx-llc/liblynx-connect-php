@@ -45,8 +45,13 @@ class SimpleCacheTokenPersistence implements TokenPersistenceInterface
         $this->cache->delete($this->cacheKey);
     }
 
+    /**
+     * Returns true if a token exists (although it may not be valid)
+     *
+     * @return bool
+     */
     public function hasToken()
     {
-        $this->cache->has($this->cacheKey);
+        return $this->cache->has($this->cacheKey);
     }
 }

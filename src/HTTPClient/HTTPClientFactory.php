@@ -30,10 +30,16 @@ class HTTPClientFactory
     /** @var callable RequestStack handler for OAuth2 requests */
     private $oauth2Handler = null;
 
-    public function __construct(callable $apiHandler = null, callable $oauth2Handler = null)
-    {
+    private $extraMiddleware = null;
+
+    public function __construct(
+        callable $apiHandler = null,
+        callable $oauth2Handler = null,
+        callable $extraMiddleware = null
+    ) {
         $this->apiHandler = $apiHandler;
         $this->oauth2Handler = $oauth2Handler;
+        $this->extraMiddleware = $extraMiddleware;
     }
 
     public function create($apiRoot, $clientId, $clientSecret, CacheInterface $cache) : ClientInterface
@@ -42,7 +48,9 @@ class HTTPClientFactory
         $handlerStack = HandlerStack::create($this->apiHandler);
         $handlerStack->push($this->createOAuth2Middleware($apiRoot, $clientId, $clientSecret, $cache));
         $handlerStack->push($this->createCacheMiddleware($cache), 'cache');
-
+        if ($this->extraMiddleware) {
+            $handlerStack->push($this->extraMiddleware);
+        }
         //now we can make our client
         $client = new GuzzleClient([
             'handler' => $handlerStack,

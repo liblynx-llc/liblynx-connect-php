@@ -25,8 +25,21 @@ class Identification extends AbstractResource
         return $this->status == 'wayf';
     }
 
+    public function limitReached()
+    {
+        return $this->status == 'concurrency-denial';
+    }
+
     public function getWayfUrl()
     {
         return $this->getLink('wayf');
+    }
+
+    public function hasAuthorization($unitCode, $rights='view')
+    {
+        if (isset($this->authorizations->$unitCode->$rights)) {
+            return $this->authorizations->$unitCode->$rights == 'authorized';
+        }
+        return false;
     }
 }

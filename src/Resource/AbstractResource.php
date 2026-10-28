@@ -24,6 +24,11 @@ abstract class AbstractResource
         }
     }
 
+    public function getJson()
+    {
+        return json_encode($this, JSON_PRETTY_PRINT);
+    }
+
     public function __get($name)
     {
         throw new LogicException("No value called $name");

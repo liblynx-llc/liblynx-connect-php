@@ -25,7 +25,16 @@ class IdentificationRequest
         $id = new IdentificationRequest;
         $id->ip = $vars['REMOTE_ADDR'] ?? null;
         $id->referrer = $vars['HTTP_REFERER'] ?? null;
-        $id->url = $vars['REQUEST_URI'] ?? null;
+
+        //figure out protocol
+        $protocol = 'http';
+        if (isset($vars['HTTPS']) && $vars['HTTPS'] === 'on') {
+            $protocol = 'https';
+        } elseif (isset($vars['HTTP_X_FORWARDED_PROTO']) && $vars['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            $protocol = 'https';
+        }
+
+        $id->url = $protocol . "://" . $vars['HTTP_HOST'] . $vars['REQUEST_URI'];
         $id->user_agent = $vars['HTTP_USER_AGENT'] ?? null;
         return $id;
     }

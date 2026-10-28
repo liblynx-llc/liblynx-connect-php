@@ -63,7 +63,7 @@ class Client implements LoggerAwareInterface
     /**
      * Create new LibLynx API client
      */
-    public function __construct(HTTPClientFactory $clientFactory = null)
+    public function __construct(HTTPClientFactory $clientFactory = null, callable $middleware = null)
     {
         if (isset($_SERVER['LIBLYNX_CLIENT_ID'])) {
             $this->clientId = $_SERVER['LIBLYNX_CLIENT_ID'];
@@ -71,9 +71,8 @@ class Client implements LoggerAwareInterface
         if (isset($_SERVER['LIBLYNX_CLIENT_SECRET'])) {
             $this->clientSecret = $_SERVER['LIBLYNX_CLIENT_SECRET'];
         }
-
         $this->log = new NullLogger();
-        $this->httpClientFactory = $clientFactory ?? new HTTPClientFactory;
+        $this->httpClientFactory = $clientFactory ?? new HTTPClientFactory(null, null, $middleware);
     }
 
     /**
@@ -144,6 +143,68 @@ class Client implements LoggerAwareInterface
 
         return $identification;
     }
+
+    /**
+     * If the identification has a simultaneous usage slot open, this will release it early before it times out
+     * @param Identification $identification
+     */
+    public function slotRelease(Identification $identification)
+    {
+        if ($identification->hasLink('release')) {
+            $this->get($identification->getLink('release'));
+        }
+    }
+
+    /**
+     * If usage controls are enabled on the account linked with the given identification, this will keep the
+     * usage slot alive and return an updated identification resource. If the status of this resource is
+     * 'concurrency-denial' then no new slots are available
+     *
+     * @param Identification $identification
+     * @return bool|Identification
+     */
+    public function slotKeepalive(Identification $identification)
+    {
+        if ($identification->hasLink('keepalive')) {
+            $response = $this->get($identification->getLink('keepalive'));
+            if (!isset($response->id)) {
+                //failed
+                $this->log->critical('keepalive request failed {response}', ['response' => $response]);
+                return false;
+            }
+
+            //update identification object - if the keepalive failed, this will have a concurrency-denial status
+            $identification = new Identification($response);
+        }
+
+        return $identification;
+    }
+
+    /**
+     * If usage controls are enabled on the account linked with the given identification, this will keep the
+     * usage slot alive and return an updated identification resource. If the status of this resource is
+     * 'concurrency-denial' then no new slots are available
+     *
+     * @param Identification $identification
+     * @return bool|Identification
+     */
+    public function slotRequest(Identification $identification)
+    {
+        if ($identification->hasLink('requestslot')) {
+            $response = $this->get($identification->getLink('requestslot'));
+            if (!isset($response->id)) {
+                //failed
+                $this->log->critical('keepalive request failed {response}', ['response' => $response]);
+                return false;
+            }
+
+            //update identification object - we may now have a slot
+            $identification = new Identification($response);
+        }
+
+        return $identification;
+    }
+
 
     /**
      * General purpose 'GET' request against API
