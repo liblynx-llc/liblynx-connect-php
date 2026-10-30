@@ -3,6 +3,16 @@
 All notable changes to `liblynx-connect-php` will be documented in this file,
 following the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
+## 1.0.3 - 2026-10-30
+
+### Fixed
+Added implementation of __isset to AbstractResource to fix issues with dynamic
+property access
+
+## 1.0.2 - 2026-10-29
+
+Widened to allow psr/log v1,2,3 and simple-cache v1,2,3
+
 ## 1.0.1 - 2026-10-29
 
 Updated to use psr/log v3

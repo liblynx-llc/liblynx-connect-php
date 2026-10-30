@@ -40,6 +40,11 @@ abstract class AbstractResource
         throw new LogicException("No value called $name");
     }
 
+    public function __isset(string $name): bool
+    {
+        return array_key_exists($name, $this->data);
+    }
+
     public function getLink(string $name): string
     {
         if (isset($this->data['_links'][$name])) {
